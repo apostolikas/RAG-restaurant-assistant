@@ -8,6 +8,8 @@ A lightweight **RAG**-powered web app that answers questions about a French gast
 - Simple, responsive frontend (HTML/CSS/JS)
 - One-command local run with FastAPI/Uvicorn
 
+![](./restaurant_review/demo.png)
+
 ## Repo Structure
 ```
 restaurant_review/

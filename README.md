@@ -20,6 +20,7 @@ restaurant_review/
 ├─ realistic_restaurant_reviews.csv
 ├─ chroma_langchain_db/     
 ├─ requirements.txt
+├─ demo.png
 └─ README.md
 ```
 

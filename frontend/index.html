@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maison de Saveurs • Restaurant Review Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #0b0b10;
+        --card: #13131a;
+        --muted: #6b7280;
+        --text: #e5e7eb;
+        --accent: #f97316;
+        --accent-2: #22d3ee;
+        --ring: rgba(34, 211, 238, 0.5);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 0; background: radial-gradient(1200px 800px at 10% 10%, #11111a, #0b0b10);
+        color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      .wrap { min-height: 100svh; display: grid; place-items: center; padding: 40px 20px; }
+      .card {
+        width: 100%; max-width: 880px; background: linear-gradient(180deg, #151521, #0f0f16);
+        border: 1px solid #1f2430; border-radius: 16px; padding: 28px; position: relative; overflow: hidden;
+      }
+      .glow { position: absolute; inset: -10%; background: radial-gradient(600px 240px at 10% 0%, rgba(249, 115, 22, .15), transparent 60%), radial-gradient(600px 240px at 100% 100%, rgba(34, 211, 238, .12), transparent 60%); filter: blur(30px); pointer-events: none; }
+      header { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+      .logo { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(135deg, #f97316, #f59e0b); color: #0b0b10; font-weight: 800; }
+      h1 { font-family: "Playfair Display", serif; font-weight: 700; font-size: 28px; margin: 0; letter-spacing: .2px; }
+      p.sub { margin: 2px 0 0 0; color: var(--muted); font-size: 14px; }
+
+      .input {
+        display: flex; gap: 10px; margin-top: 8px; background: var(--card); padding: 10px; border-radius: 12px; border: 1px solid #1f2430;
+      }
+      .input input {
+        flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-size: 16px; padding: 12px 14px;
+      }
+      .input button { background: linear-gradient(135deg, var(--accent), #f59e0b); color: #0b0b10; border: none; padding: 0 16px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+      .input button:disabled { filter: grayscale(1); opacity: .6; cursor: not-allowed; }
+      .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+      .answer { margin-top: 18px; background: var(--card); border: 1px solid #1f2430; border-radius: 12px; padding: 16px; line-height: 1.6; }
+      .answer h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: .2px; }
+      .reviews { margin-top: 14px; display: grid; gap: 10px; }
+      .review { border: 1px solid #1f2430; border-radius: 10px; padding: 12px; background: #0f0f16;   display: flex; align-items: baseline; gap: 0.5ch;}
+      .review small { color: var(--muted); }
+
+      .footer { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
+
+      .spinner { width: 16px; height: 16px; border: 2px solid #ffffff20; border-top-color: var(--accent-2); border-radius: 50%; display: inline-block; animation: spin 1s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="glow"></div>
+        <header>
+          <div class="logo">🍲</div>
+          <div>
+            <h1>Maison de Saveurs</h1>
+            <p class="sub">Ask anything about our gastropub, powered by real reviews.</p>
+          </div>
+        </header>
+
+        <div class="input">
+          <input id="q" placeholder="e.g., What do people say about the cocktails?" />
+          <button id="ask">Ask</button>
+        </div>
+        <div class="hint">Tip: Try "What are the most common compliments?" or "Is it family-friendly?"</div>
+
+        <div id="result" class="answer" style="display:none">
+          <h3>Answer</h3>
+          <div id="answerText"></div>
+          <div class="reviews">
+            <div id="reviews"></div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div>Built with LangChain + Ollama + Chroma</div>
+          <div id="status"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const askBtn = document.getElementById('ask');
+      const qEl = document.getElementById('q');
+      const statusEl = document.getElementById('status');
+      const resultEl = document.getElementById('result');
+      const answerText = document.getElementById('answerText');
+      const reviewsEl = document.getElementById('reviews');
+
+      async function ask() {
+        const question = qEl.value.trim();
+        if (!question) return;
+        askBtn.disabled = true;
+        statusEl.innerHTML = '<span class="spinner"></span> Thinking...';
+        answerText.textContent = '';
+        reviewsEl.innerHTML = '';
+        resultEl.style.display = 'none';
+
+        try {
+          const res = await fetch('/api/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Request failed');
+
+          resultEl.style.display = 'block';
+          answerText.textContent = data.answer;
+          if (Array.isArray(data.reviews)) {
+            for (const r of data.reviews) {
+              const div = document.createElement('div');
+              div.className = 'review';
+              const meta = r.metadata || {};
+              const m = Object.fromEntries(Object.entries(meta).map(([k, v]) => [String(k).toLowerCase(), v]));
+              const when = m.date ? new Date(m.date).toLocaleDateString() : '';
+              const rating = m.rating != null && m.rating !== '' ? ` • ⭐ ${m.rating}/5` : '';
+              const title = m.title || r.title || ''; // handles "Title" via m.title
+              const content = (r.pageContent || m.review || r.content || '').toString().slice(0, 300);
+              const small = document.createElement('small');
+              small.textContent = `${when}${rating}`;
+              div.appendChild(small);
+
+              const body = document.createElement('div');
+              if (title) {
+                const titleEl = document.createElement('strong');
+                titleEl.className = 'review-title';
+                titleEl.textContent = title;
+                body.appendChild(titleEl);
+                body.appendChild(document.createTextNode(': '));
+              }
+              body.appendChild(document.createTextNode(content));
+              div.appendChild(body);
+
+              reviewsEl.appendChild(div);
+            }
+          }
+          statusEl.textContent = 'Ready';
+        } catch (e) {
+          statusEl.textContent = 'Error: ' + e.message;
+        } finally {
+          askBtn.disabled = false;
+        }
+      }
+
+      askBtn.addEventListener('click', ask);
+      qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') ask(); });
+      statusEl.textContent = 'Ready';
+    </script>
+  </body>
+</html>
+
+
